@@ -249,7 +249,7 @@ class AppRouter
      */
     private function renderPage(ComponentInterface $page, LayoutStack $layouts, array $params): void
     {
-        $componentId = 'page';
+        $componentId = 'page:' . $page::class;
 
         $state = ComponentState::getInstance($componentId);
         ComponentState::reset();
