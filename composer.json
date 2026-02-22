@@ -1,0 +1,30 @@
+{
+    "name": "polidog/usephp-approuter",
+    "description": "Next.js App Router style file-based routing for usePHP",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Polidog\\UsephpApprouter\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Polidog\\UsephpApprouter\\Tests\\": "tests/"
+        }
+    },
+    "authors": [
+        {
+            "name": "polidog",
+            "email": "polidogs@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.4",
+        "polidog/use-php": "^0.0.2",
+        "psr/container": "^2.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0"
+    }
+}
