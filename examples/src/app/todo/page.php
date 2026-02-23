@@ -2,21 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Todo;
-
 use Polidog\UsePhp\Html\H;
 use Polidog\UsePhp\Runtime\Element;
-use Polidog\UsephpApprouter\Component\PageComponent;
+use Polidog\UsephpApprouter\Component\PageContext;
 
-class TodoPage extends PageComponent
-{
-    public function render(): Element
-    {
-        $this->setMetadata([
-            'title' => 'Todo List - usePHP App',
-        ]);
+use function Polidog\UsePhp\Runtime\useState;
 
-        [$todos, $setTodos] = $this->useState([
+return function (PageContext $ctx) {
+    $ctx->metadata(['title' => 'Todo List - usePHP App']);
+
+    return function (): Element {
+        [$todos, $setTodos] = useState([
             ['id' => 1, 'text' => 'Learn usePHP', 'done' => false],
             ['id' => 2, 'text' => 'Build an App Router app', 'done' => false],
             ['id' => 3, 'text' => 'Try useState hook', 'done' => true],
@@ -85,11 +81,11 @@ class TodoPage extends PageComponent
                 style: 'margin-top: 24px; padding: 16px; background: #f8f9fa; border-radius: 8px; font-family: monospace; font-size: 14px;',
                 children: [
                     H::p(style: 'margin: 0 0 8px; color: #666;', children: '// Array state with useState:'),
-                    H::p(style: 'margin: 0;', children: '[$todos, $setTodos] = $this->useState([...]);'),
+                    H::p(style: 'margin: 0;', children: '[$todos, $setTodos] = useState([...]);'),
                     H::p(style: 'margin: 4px 0 0;', children: '// Toggle: $setTodos(array_map(...))'),
                     H::p(style: 'margin: 4px 0 0;', children: '// Delete: $setTodos(array_filter(...))'),
                 ],
             ),
         ]);
-    }
-}
+    };
+};

@@ -2,22 +2,20 @@
 
 declare(strict_types=1);
 
-namespace App;
-
 use Polidog\UsePhp\Html\H;
 use Polidog\UsePhp\Runtime\Element;
-use Polidog\UsephpApprouter\Component\PageComponent;
+use Polidog\UsephpApprouter\Component\PageContext;
 
-class HomePage extends PageComponent
-{
-    public function render(): Element
-    {
-        $this->setMetadata([
-            'title' => 'Home - usePHP App Router',
-            'description' => 'Next.js App Router style file-based routing for PHP',
-        ]);
+use function Polidog\UsePhp\Runtime\useState;
 
-        [$visitCount, $setVisitCount] = $this->useState(0);
+return function (PageContext $ctx) {
+    $ctx->metadata([
+        'title' => 'Home - usePHP App Router',
+        'description' => 'Next.js App Router style file-based routing for PHP',
+    ]);
+
+    return function (): Element {
+        [$visitCount, $setVisitCount] = useState(0);
         $setVisitCount($visitCount + 1);
 
         $cardStyle = 'padding: 20px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-decoration: none; color: inherit; display: block;';
@@ -49,7 +47,7 @@ class HomePage extends PageComponent
                     ]),
                     H::a(href: '/blog/hello-world', style: $cardStyle, children: [
                         H::h3(style: 'margin: 0 0 8px; color: #9b59b6;', children: 'Dynamic Route'),
-                        H::p(style: 'margin: 0; font-size: 14px; color: #666;', children: '/blog/[slug] dynamic segment with getParam().'),
+                        H::p(style: 'margin: 0; font-size: 14px; color: #666;', children: '/blog/[slug] dynamic segment with $params[\'slug\'].'),
                     ]),
                     H::a(href: '/about', style: $cardStyle, children: [
                         H::h3(style: 'margin: 0 0 8px; color: #f39c12;', children: 'About'),
@@ -65,12 +63,12 @@ class HomePage extends PageComponent
                     H::p(children: '- File-based routing: app/page.php, app/about/page.php'),
                     H::p(children: '- Dynamic routes: app/blog/[slug]/page.php'),
                     H::p(children: '- Nested layouts: app/layout.php'),
-                    H::p(children: '- React Hooks: $this->useState() for state management'),
+                    H::p(children: '- React Hooks: useState() for state management'),
                     H::p(children: '- Form actions with CSRF: $this->action([$this, "method"])'),
                     H::p(children: '- PSR-11 Container support (optional)'),
                     H::p(children: '- Error pages: app/error.php'),
                 ],
             ),
         ]);
-    }
-}
+    };
+};

@@ -10,6 +10,7 @@ use Polidog\UsePhp\Component\ComponentInterface;
 use Polidog\UsePhp\Runtime\Action;
 use Polidog\UsePhp\Runtime\ComponentState;
 use Polidog\UsephpApprouter\Component\ErrorPageComponent;
+use Polidog\UsephpApprouter\Component\FunctionPage;
 use Polidog\UsephpApprouter\Component\PageComponent;
 use Polidog\UsephpApprouter\Document\DocumentInterface;
 use Polidog\UsephpApprouter\Document\HtmlDocument;
@@ -182,35 +183,59 @@ class AppRouter
     /**
      * @param array<string, string> $params
      */
-    private function loadPage(string $pagePath, array $params): ?ComponentInterface
+    private function loadPage(string $pagePath, array $params): ComponentInterface|FunctionPage|null
     {
         if (!file_exists($pagePath)) {
             return null;
         }
 
-        require_once $pagePath;
+        $result = require_once $pagePath;
 
+        // Closure return: function-based page
+        if ($result instanceof \Closure) {
+            return $this->buildFunctionPage($result, $pagePath, $params);
+        }
+
+        // Class-based page (fallback)
         $className = $this->getClassFromFile($pagePath);
 
-        if ($className === null) {
-            return null;
+        if ($className !== null && class_exists($className)) {
+            $instance = $this->resolveInstance($className);
+
+            if ($instance instanceof ComponentInterface) {
+                if ($instance instanceof PageComponent) {
+                    $instance->setParams($params);
+                }
+
+                return $instance;
+            }
         }
 
-        if (!class_exists($className)) {
-            return null;
+        return null;
+    }
+
+    /**
+     * @param array<string, string> $params
+     */
+    private function buildFunctionPage(\Closure $factory, string $pagePath, array $params): FunctionPage
+    {
+        $context = new Component\PageContext($params);
+        $renderFn = $factory($context);
+        $pageId = $this->computePageId($pagePath);
+
+        return new FunctionPage($renderFn, $context, $pageId);
+    }
+
+    private function computePageId(string $pagePath): string
+    {
+        $relative = str_replace($this->appDirectory, '', $pagePath);
+        $relative = preg_replace('#/page\.php$#', '', $relative);
+
+        if ($relative === '' || $relative === '/') {
+            return '/';
         }
 
-        $instance = $this->resolveInstance($className);
-
-        if (!$instance instanceof ComponentInterface) {
-            return null;
-        }
-
-        if ($instance instanceof PageComponent) {
-            $instance->setParams($params);
-        }
-
-        return $instance;
+        return $relative;
     }
 
     private function loadErrorPage(string $errorPath, int $statusCode, string $message): ?ComponentInterface
@@ -247,9 +272,11 @@ class AppRouter
     /**
      * @param array<string, string> $params
      */
-    private function renderPage(ComponentInterface $page, LayoutStack $layouts, array $params): void
+    private function renderPage(ComponentInterface|FunctionPage $page, LayoutStack $layouts, array $params): void
     {
-        $componentId = 'page:' . $page::class;
+        $componentId = $page instanceof FunctionPage
+            ? $page->getComponentId()
+            : 'page:' . $page::class;
 
         $state = ComponentState::getInstance($componentId);
         ComponentState::reset();
@@ -267,7 +294,9 @@ class AppRouter
 
         $pageElement = $page->render();
 
-        if ($page instanceof PageComponent && $this->document instanceof HtmlDocument) {
+        if ($page instanceof FunctionPage && $this->document instanceof HtmlDocument) {
+            $this->document->setMetadata($page->getMetadata());
+        } elseif ($page instanceof PageComponent && $this->document instanceof HtmlDocument) {
             $this->document->setMetadata($page->getMetadata());
         }
 
