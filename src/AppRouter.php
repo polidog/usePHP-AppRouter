@@ -28,20 +28,23 @@ class AppRouter
     private ?ContainerInterface $container;
     private RouterInterface $router;
     private DocumentInterface $document;
+    private bool $autoCompilePsx;
 
     public function __construct(
         string $appDirectory,
         ?ContainerInterface $container = null,
+        bool $autoCompilePsx = false,
     ) {
         $this->appDirectory = rtrim($appDirectory, '/');
         $this->container = $container;
         $this->router = Router::create($this->appDirectory);
         $this->document = new HtmlDocument();
+        $this->autoCompilePsx = $autoCompilePsx;
     }
 
-    public static function create(string $appDirectory): self
+    public static function create(string $appDirectory, bool $autoCompilePsx = false): self
     {
-        return new self($appDirectory);
+        return new self($appDirectory, autoCompilePsx: $autoCompilePsx);
     }
 
     public function setContainer(ContainerInterface $container): self
@@ -189,6 +192,11 @@ class AppRouter
             return null;
         }
 
+        // .psx is the source; the runtime requires the compiled .psx.php sibling.
+        if (str_ends_with($pagePath, '.psx')) {
+            $pagePath = $this->resolveCompiledPsxPath($pagePath);
+        }
+
         $result = require_once $pagePath;
 
         // Closure return: function-based page
@@ -229,13 +237,50 @@ class AppRouter
     private function computePageId(string $pagePath): string
     {
         $relative = str_replace($this->appDirectory, '', $pagePath);
-        $relative = preg_replace('#/page\.php$#', '', $relative);
+        $relative = preg_replace('#/page\.(psx\.php|psx|php)$#', '', $relative);
 
         if ($relative === '' || $relative === '/') {
             return '/';
         }
 
         return $relative;
+    }
+
+    /**
+     * Resolve a page.psx path to its compiled page.psx.php sibling. If the
+     * compiled file is missing or stale and autoCompilePsx is enabled, run
+     * the usePHP compiler. Otherwise throw a clear error pointing at
+     * `vendor/bin/usephp compile`.
+     */
+    private function resolveCompiledPsxPath(string $psxPath): string
+    {
+        $compiledPath = $psxPath . '.php';
+        $needsCompile = !file_exists($compiledPath)
+            || @filemtime($compiledPath) < @filemtime($psxPath);
+
+        if ($needsCompile) {
+            if ($this->autoCompilePsx && class_exists('Polidog\\UsePhp\\Psx\\Compiler')) {
+                $compilerClass = 'Polidog\\UsePhp\\Psx\\Compiler';
+                /** @var object{compile: callable} $compiler */
+                $compiler = new $compilerClass();
+                $source = file_get_contents($psxPath);
+                if ($source === false) {
+                    throw new \RuntimeException("Failed to read PSX source: $psxPath");
+                }
+                $compiled = $compiler->compile($source);
+                if (file_put_contents($compiledPath, $compiled) === false) {
+                    throw new \RuntimeException("Failed to write compiled PSX: $compiledPath");
+                }
+            } elseif (!file_exists($compiledPath)) {
+                throw new \RuntimeException(
+                    "Compiled PSX not found for $psxPath. "
+                    . 'Run `vendor/bin/usephp compile` to generate sibling .psx.php files, '
+                    . 'or pass autoCompilePsx: true to AppRouter for dev auto-compile.'
+                );
+            }
+        }
+
+        return $compiledPath;
     }
 
     private function loadErrorPage(string $errorPath, int $statusCode, string $message): ?ComponentInterface

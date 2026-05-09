@@ -4,8 +4,8 @@ Next.js App Router style file-based routing for PHP, built on [usePHP](https://g
 
 ## Requirements
 
-- PHP >= 8.4
-- [polidog/use-php](https://github.com/polidog/use-php) ^0.0.2
+- PHP >= 8.5
+- [polidog/use-php](https://github.com/polidog/use-php) ^0.0.3 (or `dev-main` for PSX support)
 
 ## Installation
 
@@ -34,7 +34,7 @@ app/
   page.php            -> /
   error.php           -> Error page (404 etc.)
   about/
-    page.php          -> /about
+    page.php          -> /about              (or page.psx, see below)
   counter/
     page.php          -> /counter
   todo/
@@ -83,6 +83,57 @@ return function (PageContext $ctx) {
         return H::div(children: [$renderCard('Hello')]);
     };
 };
+```
+
+### PSX Page (TSX-like syntax)
+
+If you prefer HTML-like markup, write `page.psx` instead of `page.php`. The file uses the same outer signature; only the inner render returns PSX rather than `H::xxx()` calls.
+
+```php
+<?php
+// app/about/page.psx
+declare(strict_types=1);
+
+use Polidog\UsePhp\Html\H;
+use Polidog\UsePhp\Runtime\Element;
+use Polidog\UsephpApprouter\Component\PageContext;
+
+return function (PageContext $ctx) {
+    $ctx->metadata(['title' => 'About']);
+
+    return function (): Element {
+        return <div className="container">
+            <h1>About</h1>
+            <p>Written in PSX.</p>
+        </div>;
+    };
+};
+```
+
+`.psx` files must be compiled to a sibling `.psx.php`. Two workflows:
+
+```bash
+# Production / CI: pre-compile once
+./vendor/bin/usephp compile src/app
+./vendor/bin/usephp compile src/app --check   # CI guard
+
+# Dev loop: watch and recompile on save
+./vendor/bin/usephp compile src/app --watch
+```
+
+Or let AppRouter compile on demand during development:
+
+```php
+$app = AppRouter::create(__DIR__ . '/../src/app', autoCompilePsx: true);
+```
+
+`page.psx` and `page.php` cannot coexist in the same directory — the scanner errors if both are present.
+
+Add `*.psx.php` to `.gitignore`:
+
+```gitignore
+*.psx.php
+psx-manifest.php
 ```
 
 ### Dynamic Routes
