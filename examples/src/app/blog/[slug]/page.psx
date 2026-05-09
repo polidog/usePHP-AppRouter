@@ -1,0 +1,86 @@
+<?php
+
+declare(strict_types=1);
+
+use Polidog\UsePhp\Html\H;
+use Polidog\UsePhp\Runtime\Element;
+use Polidog\UsephpApprouter\Component\PageContext;
+
+use function Polidog\UsePhp\Runtime\useState;
+
+return function (PageContext $ctx) {
+    $slug = $ctx->params['slug'] ?? 'unknown';
+    $title = ucwords(str_replace('-', ' ', $slug));
+
+    $ctx->metadata(['title' => "{$title} - Blog"]);
+
+    $getContent = function (string $slug): array {
+        $contents = [
+            'hello-world' => [
+                <p>Welcome to usePHP! This is your first blog post.</p>,
+                <p>usePHP brings React-like development patterns to PHP, allowing you to build modern server-rendered applications with familiar concepts like components and hooks.</p>,
+            ],
+            'getting-started' => [
+                <p>Getting started with usePHP is easy. First, install it via Composer:</p>,
+                <p style="font-family: monospace; background: #f0f0f0; padding: 12px; border-radius: 4px;">
+                    composer require polidog/usephp-approuter
+                </p>,
+                <p>Then create your app directory structure and start building!</p>,
+            ],
+        ];
+
+        return $contents[$slug] ?? [
+            <p>{"This is a dynamically generated blog post for: {$slug}"}</p>,
+            <p>The URL parameter [slug] is automatically extracted and available via $params['slug'].</p>,
+            <p>Try visiting /blog/hello-world or /blog/getting-started for more content.</p>,
+        ];
+    };
+
+    return function () use ($slug, $title, $getContent): Element {
+        [$liked, $setLiked] = useState(false);
+        [$likeCount, $setLikeCount] = useState(0);
+
+        $content = $getContent($slug);
+        $likeBtnStyle =
+            'padding: 8px 20px; border: 2px solid ' . ($liked ? '#e74c3c' : '#ddd')
+            . '; background: ' . ($liked ? '#ffeaea' : 'white')
+            . '; border-radius: 20px; cursor: pointer; font-size: 14px;';
+        $slugBadgeStyle = 'font-family: monospace; background: #f0f0f0; padding: 2px 8px; border-radius: 4px;';
+        $likeBoxStyle = 'display: flex; align-items: center; gap: 12px; padding: 16px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);';
+        $codeStyle = 'margin-top: 24px; padding: 16px; background: #f8f9fa; border-radius: 8px; font-family: monospace; font-size: 14px;';
+
+        $onLike = function () use ($liked, $setLiked, $likeCount, $setLikeCount) {
+            $setLiked(!$liked);
+            return $setLikeCount($liked ? $likeCount - 1 : $likeCount + 1);
+        };
+
+        return <div>
+            <div style="margin-bottom: 16px;">
+                <a href="/" style="color: #3498db; text-decoration: none;">&lt;- Back to Home</a>
+            </div>
+
+            <h1>{$title}</h1>
+            <div style="color: #666; margin-bottom: 16px; font-size: 14px;">
+                <span>Slug: </span>
+                <span style={$slugBadgeStyle}>{$slug}</span>
+            </div>
+
+            <div style="line-height: 1.8; margin-bottom: 24px;">
+                {$content}
+            </div>
+
+            <div style={$likeBoxStyle}>
+                <button style={$likeBtnStyle} onClick={$onLike}>
+                    {($liked ? 'Liked!' : 'Like') . " ({$likeCount})"}
+                </button>
+                <span style="color: #666; font-size: 14px;">Try clicking the like button (useState demo)</span>
+            </div>
+
+            <div style={$codeStyle}>
+                <p style="margin: 0 0 8px; color: #666;">// Dynamic route + useState:</p>
+                <p style="margin: 0;">$slug = $ctx-&gt;params['slug'];</p>
+                <p style="margin: 4px 0 0;">[$liked, $setLiked] = useState(false);</p>
+            </div>
+        </div>;
+    };
+};

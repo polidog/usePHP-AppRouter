@@ -1,0 +1,55 @@
+<?php
+
+declare(strict_types=1);
+
+use Polidog\UsePhp\Html\H;
+use Polidog\UsePhp\Runtime\Element;
+use Polidog\UsephpApprouter\Component\PageContext;
+
+return function (PageContext $ctx) {
+    $ctx->metadata(['title' => 'About - usePHP App']);
+
+    $renderConcept = fn(string $title, string $description): Element =>
+        <div style="padding: 16px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 6px;">{$title}</h3>
+            <p style="margin: 0; color: #666; font-size: 14px;">{$description}</p>
+        </div>;
+
+    return function () use ($renderConcept): Element {
+        $codeStyle = 'background: #f0f0f0; padding: 16px; border-radius: 6px; font-family: monospace; font-size: 14px; line-height: 1.8;';
+
+        return <div>
+            <h1>About usePHP App Router</h1>
+            <p>usePHP is a React Hooks-style PHP framework. The App Router provides Next.js-style file-based routing.</p>
+
+            <h2 style="margin-top: 24px;">Directory Structure</h2>
+            <div style={$codeStyle}>
+                <p style="margin: 0;">app/</p>
+                <p style="margin: 0; padding-left: 1.5em;">layout.php         -&gt; Root layout</p>
+                <p style="margin: 0; padding-left: 1.5em;">page.psx           -&gt; /</p>
+                <p style="margin: 0; padding-left: 1.5em;">error.php          -&gt; Error page</p>
+                <p style="margin: 0; padding-left: 1.5em;">about/</p>
+                <p style="margin: 0; padding-left: 3em;">page.psx         -&gt; /about</p>
+                <p style="margin: 0; padding-left: 1.5em;">counter/</p>
+                <p style="margin: 0; padding-left: 3em;">page.psx         -&gt; /counter (useState demo)</p>
+                <p style="margin: 0; padding-left: 1.5em;">todo/</p>
+                <p style="margin: 0; padding-left: 3em;">page.psx         -&gt; /todo (useState with arrays)</p>
+                <p style="margin: 0; padding-left: 1.5em;">form/</p>
+                <p style="margin: 0; padding-left: 3em;">page.psx         -&gt; /form (form action + CSRF)</p>
+                <p style="margin: 0; padding-left: 1.5em;">blog/</p>
+                <p style="margin: 0; padding-left: 3em;">[slug]/</p>
+                <p style="margin: 0; padding-left: 4.5em;">page.psx       -&gt; /blog/:slug (dynamic)</p>
+            </div>
+
+            <h2 style="margin-top: 24px;">Key Concepts</h2>
+            <div style="display: grid; gap: 16px; margin-top: 12px;">
+                {$renderConcept('useState Hook', '$this->useState($initial) returns [$state, $setState]. State persists in the session.')}
+                {$renderConcept('Form Actions', '$this->action([$this, "methodName"]) generates a secure action token with CSRF protection.')}
+                {$renderConcept('Dynamic Routes', 'Directories like [slug] become URL parameters accessible via $params[\'slug\'].')}
+                {$renderConcept('Nested Layouts', 'Each directory can have a layout.php that wraps all pages beneath it.')}
+                {$renderConcept('PSR-11 Container', 'AppRouter accepts an optional ContainerInterface for dependency injection.')}
+                {$renderConcept('PSX (TSX-like syntax)', 'Author pages with HTML markup and {expr} placeholders. Compile via vendor/bin/usephp compile.')}
+            </div>
+        </div>;
+    };
+};
