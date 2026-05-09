@@ -16,7 +16,10 @@ class FormPage extends PageComponent
             'title' => 'Form - usePHP App',
         ]);
 
-        [$messages, $setMessages] = $this->useState([]);
+        // The submit handler redirects rather than updating state, so we
+        // only consume `$messages` here. (The list stays empty in this demo;
+        // a real app would call $setMessages from inside handleSubmit.)
+        [$messages] = $this->useState([]);
         $saved = $this->getQuery('saved') === '1';
         $action = $this->action([$this, 'handleSubmit']);
 
