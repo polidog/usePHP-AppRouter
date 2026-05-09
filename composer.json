@@ -20,8 +20,8 @@
         }
     ],
     "require": {
-        "php": ">=8.4",
-        "polidog/use-php": "^0.0.2",
+        "php": ">=8.5",
+        "polidog/use-php": "dev-main@dev",
         "psr/container": "^2.0"
     },
     "require-dev": {

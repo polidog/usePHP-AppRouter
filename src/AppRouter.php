@@ -28,20 +28,38 @@ class AppRouter
     private ?ContainerInterface $container;
     private RouterInterface $router;
     private DocumentInterface $document;
+    private bool $autoCompilePsx;
+    private string $psxCacheDir;
 
     public function __construct(
         string $appDirectory,
         ?ContainerInterface $container = null,
+        bool $autoCompilePsx = false,
+        ?string $psxCacheDir = null,
     ) {
         $this->appDirectory = rtrim($appDirectory, '/');
         $this->container = $container;
         $this->router = Router::create($this->appDirectory);
         $this->document = new HtmlDocument();
+        $this->autoCompilePsx = $autoCompilePsx;
+        // Default cache dir: <projectRoot>/var/cache/psx where projectRoot
+        // is the parent of the appDirectory. This matches the usePHP CLI's
+        // default of <cwd>/var/cache/psx for the typical layout where the
+        // app dir is `src/app` (so cache lands beside src/, not inside it).
+        $this->psxCacheDir = $psxCacheDir
+            ?? \dirname($this->appDirectory) . '/var/cache/psx';
     }
 
-    public static function create(string $appDirectory): self
-    {
-        return new self($appDirectory);
+    public static function create(
+        string $appDirectory,
+        bool $autoCompilePsx = false,
+        ?string $psxCacheDir = null,
+    ): self {
+        return new self(
+            $appDirectory,
+            autoCompilePsx: $autoCompilePsx,
+            psxCacheDir: $psxCacheDir,
+        );
     }
 
     public function setContainer(ContainerInterface $container): self
@@ -189,6 +207,11 @@ class AppRouter
             return null;
         }
 
+        // .psx is the source; the runtime requires the compiled .psx.php sibling.
+        if (str_ends_with($pagePath, '.psx')) {
+            $pagePath = $this->resolveCompiledPsxPath($pagePath);
+        }
+
         $result = require_once $pagePath;
 
         // Closure return: function-based page
@@ -229,13 +252,119 @@ class AppRouter
     private function computePageId(string $pagePath): string
     {
         $relative = str_replace($this->appDirectory, '', $pagePath);
-        $relative = preg_replace('#/page\.php$#', '', $relative);
+        $relative = preg_replace('#/page\.(psx\.php|psx|php)$#', '', $relative);
 
         if ($relative === '' || $relative === '/') {
             return '/';
         }
 
         return $relative;
+    }
+
+    /**
+     * Resolve a page.psx path to its cached compiled file. The cache file
+     * sits in `var/cache/psx/<sha1(realpath(source))>.php` per the usePHP
+     * convention (CompileCommand::cachePathFor).
+     *
+     * Behaviour by mode:
+     * - autoCompilePsx=true: when the cache file is missing or older than
+     *   the source, the usePHP Compiler runs in-process and rewrites the
+     *   cache atomically (temp + rename).
+     * - autoCompilePsx=false (default, production): if the cache file is
+     *   missing, throw a clear error pointing at `vendor/bin/usephp compile`.
+     *   If it exists, it's treated as authoritative — staleness is NOT
+     *   re-checked at request time. The deployment / build step owns the
+     *   refresh contract via `usephp compile`.
+     */
+    private function resolveCompiledPsxPath(string $psxPath): string
+    {
+        $compiledPath = $this->cachePathFor($psxPath);
+
+        if (!$this->autoCompilePsx) {
+            if (!file_exists($compiledPath)) {
+                throw new \RuntimeException(
+                    "Compiled PSX not found for $psxPath (expected $compiledPath). "
+                    . 'Run `vendor/bin/usephp compile` to populate the cache directory, '
+                    . 'or pass autoCompilePsx: true to AppRouter for dev auto-compile.'
+                );
+            }
+            return $compiledPath;
+        }
+
+        if (!class_exists('Polidog\\UsePhp\\Psx\\Compiler')) {
+            throw new \RuntimeException(
+                'autoCompilePsx is enabled but Polidog\\UsePhp\\Psx\\Compiler '
+                . 'is not available. Update polidog/use-php to a version with PSX support.'
+            );
+        }
+
+        $needsCompile = !file_exists($compiledPath)
+            || @filemtime($compiledPath) < @filemtime($psxPath);
+
+        if ($needsCompile) {
+            $this->ensureCacheDir();
+            $compilerClass = 'Polidog\\UsePhp\\Psx\\Compiler';
+            /** @var object{compile: callable} $compiler */
+            $compiler = new $compilerClass();
+            $source = file_get_contents($psxPath);
+            if ($source === false) {
+                throw new \RuntimeException("Failed to read PSX source: $psxPath");
+            }
+            $compiled = $compiler->compile($source);
+            $this->atomicWrite($compiledPath, $compiled);
+        }
+
+        return $compiledPath;
+    }
+
+    /**
+     * Write to the destination via a tempfile + rename so concurrent
+     * requests never see a partially written compiled file. The tempfile
+     * is placed in the same directory as the destination so rename is
+     * atomic on POSIX filesystems.
+     */
+    private function atomicWrite(string $destination, string $content): void
+    {
+        $dir = \dirname($destination);
+        $tmp = @\tempnam($dir, 'psx-');
+        if ($tmp === false) {
+            throw new \RuntimeException("Failed to create temp file in $dir");
+        }
+        if (\file_put_contents($tmp, $content) === false) {
+            @\unlink($tmp);
+            throw new \RuntimeException("Failed to write temp file: $tmp");
+        }
+        if (!@\rename($tmp, $destination)) {
+            @\unlink($tmp);
+            throw new \RuntimeException("Failed to rename $tmp to $destination");
+        }
+    }
+
+    private function cachePathFor(string $sourcePath): string
+    {
+        // Mirror usePHP's CompileCommand::cachePathFor — same hashing + naming
+        // so a pre-compiled cache produced by `vendor/bin/usephp compile` is
+        // findable here without consulting the manifest.
+        if (\class_exists('Polidog\\UsePhp\\Psx\\CompileCommand')) {
+            return \Polidog\UsePhp\Psx\CompileCommand::cachePathFor(
+                $this->psxCacheDir,
+                $sourcePath,
+            );
+        }
+        // Fallback (CompileCommand not loaded for some reason): use the same
+        // algorithm so we never disagree with the upstream tool.
+        $abs = \realpath($sourcePath);
+        if ($abs === false) {
+            $abs = $sourcePath;
+        }
+        return rtrim($this->psxCacheDir, '/') . '/' . sha1($abs) . '.php';
+    }
+
+    private function ensureCacheDir(): void
+    {
+        if (!is_dir($this->psxCacheDir)) {
+            @mkdir($this->psxCacheDir, 0o755, true);
+        }
     }
 
     private function loadErrorPage(string $errorPath, int $statusCode, string $message): ?ComponentInterface

@@ -10,7 +10,7 @@ use SplFileInfo;
 
 final class PageScanner
 {
-    private const PAGE_FILE = 'page.php';
+    private const PAGE_FILES = ['page.psx', 'page.php'];
     private const LAYOUT_FILE = 'layout.php';
     private const ERROR_FILE = 'error.php';
     private const DYNAMIC_SEGMENT_PATTERN = '/^\[([a-zA-Z_][a-zA-Z0-9_]*)\]$/';
@@ -52,7 +52,10 @@ final class PageScanner
      */
     private function findPages(string $appDir): array
     {
-        $pages = [];
+        // Discover candidate page files per directory. If both page.psx and
+        // page.php exist in the same directory we error: routing would be
+        // ambiguous and one of the two is almost certainly a leftover.
+        $perDir = [];
 
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($appDir, RecursiveDirectoryIterator::SKIP_DOTS),
@@ -61,9 +64,25 @@ final class PageScanner
 
         /** @var SplFileInfo $file */
         foreach ($iterator as $file) {
-            if ($file->isFile() && $file->getFilename() === self::PAGE_FILE) {
-                $pages[] = $file->getPathname();
+            if (!$file->isFile()) {
+                continue;
             }
+            $name = $file->getFilename();
+            if (!\in_array($name, self::PAGE_FILES, true)) {
+                continue;
+            }
+            $perDir[$file->getPath()][$name] = $file->getPathname();
+        }
+
+        $pages = [];
+        foreach ($perDir as $dir => $candidates) {
+            if (\count($candidates) > 1) {
+                throw new \RuntimeException(
+                    "Both page.psx and page.php exist in $dir. "
+                    . 'Remove one — having both makes routing ambiguous.'
+                );
+            }
+            $pages[] = \reset($candidates);
         }
 
         return $pages;
