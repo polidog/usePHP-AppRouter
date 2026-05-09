@@ -1,11 +1,11 @@
 # usePHP App Router
 
-Next.js App Router style file-based routing for PHP, built on [usePHP](https://github.com/polidog/use-php).
+Next.js App Router style file-based routing for PHP, built on [usePHP](https://github.com/polidog/usePHP).
 
 ## Requirements
 
 - PHP >= 8.5
-- [polidog/use-php](https://github.com/polidog/use-php) ^0.0.3 (or `dev-main` for PSX support)
+- [polidog/use-php](https://github.com/polidog/usePHP) ^0.1.0
 
 ## Installation
 
