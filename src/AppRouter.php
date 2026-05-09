@@ -264,40 +264,80 @@ class AppRouter
     /**
      * Resolve a page.psx path to its cached compiled file. The cache file
      * sits in `var/cache/psx/<sha1(realpath(source))>.php` per the usePHP
-     * convention (CompileCommand::cachePathFor). If missing or stale and
-     * autoCompilePsx is enabled, the usePHP Compiler runs in-process;
-     * otherwise we throw a clear error pointing at `vendor/bin/usephp compile`.
+     * convention (CompileCommand::cachePathFor).
+     *
+     * Behaviour by mode:
+     * - autoCompilePsx=true: when the cache file is missing or older than
+     *   the source, the usePHP Compiler runs in-process and rewrites the
+     *   cache atomically (temp + rename).
+     * - autoCompilePsx=false (default, production): if the cache file is
+     *   missing, throw a clear error pointing at `vendor/bin/usephp compile`.
+     *   If it exists, it's treated as authoritative — staleness is NOT
+     *   re-checked at request time. The deployment / build step owns the
+     *   refresh contract via `usephp compile`.
      */
     private function resolveCompiledPsxPath(string $psxPath): string
     {
         $compiledPath = $this->cachePathFor($psxPath);
-        $needsCompile = !file_exists($compiledPath)
-            || @filemtime($compiledPath) < @filemtime($psxPath);
 
-        if ($needsCompile) {
-            if ($this->autoCompilePsx && class_exists('Polidog\\UsePhp\\Psx\\Compiler')) {
-                $this->ensureCacheDir();
-                $compilerClass = 'Polidog\\UsePhp\\Psx\\Compiler';
-                /** @var object{compile: callable} $compiler */
-                $compiler = new $compilerClass();
-                $source = file_get_contents($psxPath);
-                if ($source === false) {
-                    throw new \RuntimeException("Failed to read PSX source: $psxPath");
-                }
-                $compiled = $compiler->compile($source);
-                if (file_put_contents($compiledPath, $compiled) === false) {
-                    throw new \RuntimeException("Failed to write compiled PSX: $compiledPath");
-                }
-            } elseif (!file_exists($compiledPath)) {
+        if (!$this->autoCompilePsx) {
+            if (!file_exists($compiledPath)) {
                 throw new \RuntimeException(
                     "Compiled PSX not found for $psxPath (expected $compiledPath). "
                     . 'Run `vendor/bin/usephp compile` to populate the cache directory, '
                     . 'or pass autoCompilePsx: true to AppRouter for dev auto-compile.'
                 );
             }
+            return $compiledPath;
+        }
+
+        if (!class_exists('Polidog\\UsePhp\\Psx\\Compiler')) {
+            throw new \RuntimeException(
+                'autoCompilePsx is enabled but Polidog\\UsePhp\\Psx\\Compiler '
+                . 'is not available. Update polidog/use-php to a version with PSX support.'
+            );
+        }
+
+        $needsCompile = !file_exists($compiledPath)
+            || @filemtime($compiledPath) < @filemtime($psxPath);
+
+        if ($needsCompile) {
+            $this->ensureCacheDir();
+            $compilerClass = 'Polidog\\UsePhp\\Psx\\Compiler';
+            /** @var object{compile: callable} $compiler */
+            $compiler = new $compilerClass();
+            $source = file_get_contents($psxPath);
+            if ($source === false) {
+                throw new \RuntimeException("Failed to read PSX source: $psxPath");
+            }
+            $compiled = $compiler->compile($source);
+            $this->atomicWrite($compiledPath, $compiled);
         }
 
         return $compiledPath;
+    }
+
+    /**
+     * Write to the destination via a tempfile + rename so concurrent
+     * requests never see a partially written compiled file. The tempfile
+     * is placed in the same directory as the destination so rename is
+     * atomic on POSIX filesystems.
+     */
+    private function atomicWrite(string $destination, string $content): void
+    {
+        $dir = \dirname($destination);
+        $tmp = @\tempnam($dir, 'psx-');
+        if ($tmp === false) {
+            throw new \RuntimeException("Failed to create temp file in $dir");
+        }
+        if (\file_put_contents($tmp, $content) === false) {
+            @\unlink($tmp);
+            throw new \RuntimeException("Failed to write temp file: $tmp");
+        }
+        if (!@\rename($tmp, $destination)) {
+            @\unlink($tmp);
+            throw new \RuntimeException("Failed to rename $tmp to $destination");
+        }
     }
 
     private function cachePathFor(string $sourcePath): string

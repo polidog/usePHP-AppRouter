@@ -86,6 +86,55 @@ class PsxIntegrationTest extends TestCase
         self::assertStringContainsString('Auto-compiled', $output);
     }
 
+    public function testStaleCacheIsTreatedAsAuthoritativeWithoutAutoCompile(): void
+    {
+        // Production-mode contract: once `usephp compile` produced a cache
+        // file, the runtime treats it as the source of truth. Editing the
+        // .psx after deploy without re-running compile must NOT silently
+        // pick up the new source — it must keep serving the cache.
+        \file_put_contents(
+            $this->workDir . '/page.psx',
+            <<<'PSX'
+            <?php
+            use Polidog\UsePhp\Html\H;
+            use Polidog\UsePhp\Runtime\Element;
+            use Polidog\UsephpApprouter\Component\PageContext;
+
+            return function (PageContext $ctx) {
+                return function (): Element {
+                    return <p>Cached version</p>;
+                };
+            };
+            PSX,
+        );
+
+        $cacheDir = $this->workDir . '/cache';
+        \mkdir($cacheDir, 0o755, true);
+        $compiler = new \Polidog\UsePhp\Psx\Compiler();
+        $cachePath = \Polidog\UsePhp\Psx\CompileCommand::cachePathFor(
+            $cacheDir,
+            $this->workDir . '/page.psx',
+        );
+        \file_put_contents(
+            $cachePath,
+            $compiler->compile(\file_get_contents($this->workDir . '/page.psx')),
+        );
+
+        // Edit the .psx so the source is now newer than the cache.
+        \sleep(1); // ensure mtime advances on coarse filesystems
+        \file_put_contents(
+            $this->workDir . '/page.psx',
+            \str_replace('Cached version', 'Live edit', \file_get_contents($this->workDir . '/page.psx')),
+        );
+        \touch($this->workDir . '/page.psx', \time() + 60);
+
+        $app = AppRouter::create($this->workDir, psxCacheDir: $cacheDir);
+        $output = $this->runApp($app, '/');
+
+        self::assertStringContainsString('Cached version', $output);
+        self::assertStringNotContainsString('Live edit', $output);
+    }
+
     public function testPrecompiledPsxIsLoadedFromCacheDirWithoutAutoCompile(): void
     {
         \file_put_contents(
