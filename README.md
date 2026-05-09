@@ -110,7 +110,7 @@ return function (PageContext $ctx) {
 };
 ```
 
-`.psx` files must be compiled to a sibling `.psx.php`. Two workflows:
+`.psx` files must be compiled. Output goes to `var/cache/psx/` by default (sha1-named files plus `manifest.php`); the source tree only ever contains `.psx`.
 
 ```bash
 # Production / CI: pre-compile once
@@ -119,21 +119,32 @@ return function (PageContext $ctx) {
 
 # Dev loop: watch and recompile on save
 ./vendor/bin/usephp compile src/app --watch
+
+# Override the cache location
+./vendor/bin/usephp compile src/app --cache=build/psx
 ```
 
 Or let AppRouter compile on demand during development:
 
 ```php
+// Default cache: <appDir>/../var/cache/psx
 $app = AppRouter::create(__DIR__ . '/../src/app', autoCompilePsx: true);
+
+// Or pass an explicit cache directory (must match the CLI if you also
+// use `vendor/bin/usephp compile`):
+$app = AppRouter::create(
+    __DIR__ . '/../src/app',
+    autoCompilePsx: true,
+    psxCacheDir: __DIR__ . '/../build/psx',
+);
 ```
 
 `page.psx` and `page.php` cannot coexist in the same directory — the scanner errors if both are present.
 
-Add `*.psx.php` to `.gitignore`:
+Add the cache directory to `.gitignore`:
 
 ```gitignore
-*.psx.php
-psx-manifest.php
+/var/cache/psx/
 ```
 
 ### Dynamic Routes

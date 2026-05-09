@@ -44,7 +44,7 @@ class PsxIntegrationTest extends TestCase
         $this->runApp($app, '/');
     }
 
-    public function testAutoCompileGeneratesSiblingAndPageRenders(): void
+    public function testAutoCompileGeneratesCacheFileAndPageRenders(): void
     {
         \file_put_contents(
             $this->workDir . '/page.psx',
@@ -63,18 +63,31 @@ class PsxIntegrationTest extends TestCase
             PSX,
         );
 
-        $app = AppRouter::create($this->workDir, autoCompilePsx: true);
+        $cacheDir = $this->workDir . '/cache';
+        $app = AppRouter::create(
+            $this->workDir,
+            autoCompilePsx: true,
+            psxCacheDir: $cacheDir,
+        );
 
         $output = $this->runApp($app, '/');
 
-        self::assertFileExists($this->workDir . '/page.psx.php');
+        // The cache dir should now contain a sha1-named compiled file.
+        self::assertDirectoryExists($cacheDir);
+        $expected = \Polidog\UsePhp\Psx\CompileCommand::cachePathFor(
+            $cacheDir,
+            $this->workDir . '/page.psx',
+        );
+        self::assertFileExists($expected);
+        self::assertFileDoesNotExist(
+            $this->workDir . '/page.psx.php',
+            'Source tree must NOT contain a sibling .psx.php',
+        );
         self::assertStringContainsString('Auto-compiled', $output);
     }
 
-    public function testPrecompiledPsxIsLoadedWithoutAutoCompile(): void
+    public function testPrecompiledPsxIsLoadedFromCacheDirWithoutAutoCompile(): void
     {
-        // Hand-compile via the same Compiler the CLI uses, to verify the
-        // production path (no auto-compile flag) finds the sibling.
         \file_put_contents(
             $this->workDir . '/page.psx',
             <<<'PSX'
@@ -90,11 +103,19 @@ class PsxIntegrationTest extends TestCase
             };
             PSX,
         );
+
+        $cacheDir = $this->workDir . '/cache';
+        \mkdir($cacheDir, 0o755, true);
+
         $compiler = new \Polidog\UsePhp\Psx\Compiler();
         $compiled = $compiler->compile(\file_get_contents($this->workDir . '/page.psx'));
-        \file_put_contents($this->workDir . '/page.psx.php', $compiled);
+        $cachePath = \Polidog\UsePhp\Psx\CompileCommand::cachePathFor(
+            $cacheDir,
+            $this->workDir . '/page.psx',
+        );
+        \file_put_contents($cachePath, $compiled);
 
-        $app = AppRouter::create($this->workDir);
+        $app = AppRouter::create($this->workDir, psxCacheDir: $cacheDir);
 
         $output = $this->runApp($app, '/');
         self::assertStringContainsString('Pre-compiled output', $output);
