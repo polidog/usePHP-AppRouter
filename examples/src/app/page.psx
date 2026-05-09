@@ -1,0 +1,69 @@
+<?php
+
+declare(strict_types=1);
+
+use Polidog\UsePhp\Html\H;
+use Polidog\UsePhp\Runtime\Element;
+use Polidog\UsephpApprouter\Component\PageContext;
+
+use function Polidog\UsePhp\Runtime\useState;
+
+return function (PageContext $ctx) {
+    $ctx->metadata([
+        'title' => 'Home - usePHP App Router',
+        'description' => 'Next.js App Router style file-based routing for PHP',
+    ]);
+
+    return function (): Element {
+        [$visitCount, $setVisitCount] = useState(0);
+        $setVisitCount($visitCount + 1);
+
+        $cardStyle = 'padding: 20px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-decoration: none; color: inherit; display: block;';
+        $gridStyle = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 32px;';
+        $featuresStyle = 'padding: 16px 24px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);';
+
+        return <div>
+            <h1 style="margin-bottom: 8px;">Welcome to usePHP App Router</h1>
+            <p style="color: #666; margin-bottom: 24px;">Next.js-style file-based routing for PHP with React Hooks.</p>
+
+            <p style="padding: 8px 16px; background: #e8f4fd; border-radius: 6px; display: inline-block; margin-bottom: 24px;">
+                {"Page rendered {$visitCount} time(s) in this session (useState demo)"}
+            </p>
+
+            <h2 style="margin-bottom: 16px;">Examples</h2>
+            <div style={$gridStyle}>
+                <a href="/counter" style={$cardStyle}>
+                    <h3 style="margin: 0 0 8px; color: #e74c3c;">Counter</h3>
+                    <p style="margin: 0; font-size: 14px; color: #666;">useState hook with increment / decrement / reset buttons.</p>
+                </a>
+                <a href="/todo" style={$cardStyle}>
+                    <h3 style="margin: 0 0 8px; color: #2ecc71;">Todo List</h3>
+                    <p style="margin: 0; font-size: 14px; color: #666;">useState with array state: toggle done, delete items.</p>
+                </a>
+                <a href="/form" style={$cardStyle}>
+                    <h3 style="margin: 0 0 8px; color: #3498db;">Form Action</h3>
+                    <p style="margin: 0; font-size: 14px; color: #666;">Server-side form handling with auto CSRF protection.</p>
+                </a>
+                <a href="/blog/hello-world" style={$cardStyle}>
+                    <h3 style="margin: 0 0 8px; color: #9b59b6;">Dynamic Route</h3>
+                    <p style="margin: 0; font-size: 14px; color: #666;">/blog/[slug] dynamic segment with $params['slug'].</p>
+                </a>
+                <a href="/about" style={$cardStyle}>
+                    <h3 style="margin: 0 0 8px; color: #f39c12;">About</h3>
+                    <p style="margin: 0; font-size: 14px; color: #666;">App Router directory structure overview.</p>
+                </a>
+            </div>
+
+            <h2 style="margin-bottom: 12px;">Features</h2>
+            <div style={$featuresStyle}>
+                <p>- File-based routing: app/page.psx, app/about/page.psx</p>
+                <p>- Dynamic routes: app/blog/[slug]/page.psx</p>
+                <p>- Nested layouts: app/layout.php</p>
+                <p>- React Hooks: useState() for state management</p>
+                <p>- Form actions with CSRF: $this->action([$this, "method"])</p>
+                <p>- PSR-11 Container support (optional)</p>
+                <p>- Error pages: app/error.php</p>
+            </div>
+        </div>;
+    };
+};

@@ -1,0 +1,75 @@
+<?php
+
+declare(strict_types=1);
+
+use Polidog\UsePhp\Html\H;
+use Polidog\UsePhp\Runtime\Element;
+use Polidog\UsephpApprouter\Component\PageContext;
+
+use function Polidog\UsePhp\Runtime\useState;
+
+return function (PageContext $ctx) {
+    $ctx->metadata(['title' => 'Todo List - usePHP App']);
+
+    return function (): Element {
+        [$todos, $setTodos] = useState([
+            ['id' => 1, 'text' => 'Learn usePHP', 'done' => false],
+            ['id' => 2, 'text' => 'Build an App Router app', 'done' => false],
+            ['id' => 3, 'text' => 'Try useState hook', 'done' => true],
+        ]);
+
+        $doneCount = count(array_filter($todos, fn($t) => $t['done']));
+        $totalCount = count($todos);
+
+        $toggle = fn(int $id) => $setTodos(array_map(
+            fn($t) => $t['id'] === $id ? [...$t, 'done' => !$t['done']] : $t,
+            $todos,
+        ));
+        $delete = fn(int $id) => $setTodos(array_values(array_filter(
+            $todos,
+            fn($t) => $t['id'] !== $id,
+        )));
+
+        $rowStyle = 'display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: white; border-radius: 6px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);';
+        $deleteBtnStyle = 'padding: 4px 10px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;';
+        $statBadgeStyle = 'padding: 6px 12px; background: #3498db; color: white; border-radius: 16px; font-size: 14px;';
+        $codeStyle = 'margin-top: 24px; padding: 16px; background: #f8f9fa; border-radius: 8px; font-family: monospace; font-size: 14px;';
+
+        $checkboxStyle = fn(bool $done) =>
+            'width: 28px; height: 28px; border-radius: 50%; border: 2px solid ' . ($done ? '#2ecc71' : '#ddd')
+            . '; background: ' . ($done ? '#2ecc71' : 'transparent')
+            . '; color: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;';
+        $textStyle = fn(bool $done) => $done
+            ? 'text-decoration: line-through; color: #999; flex: 1;'
+            : 'flex: 1;';
+
+        return <div>
+            <h1>Todo List Example</h1>
+            <p>This page demonstrates useState with array state management.</p>
+
+            <div style="display: flex; gap: 12px; margin: 16px 0;">
+                <span style={$statBadgeStyle}>{"{$doneCount} / {$totalCount} completed"}</span>
+            </div>
+
+            <ul style="list-style: none; padding: 0; max-width: 500px;">
+                {array_map(
+                    fn(array $todo): Element => <li style={$rowStyle}>
+                        <button style={$checkboxStyle($todo['done'])} onClick={fn() => $toggle($todo['id'])}>
+                            {$todo['done'] ? 'v' : ''}
+                        </button>
+                        <span style={$textStyle($todo['done'])}>{$todo['text']}</span>
+                        <button style={$deleteBtnStyle} onClick={fn() => $delete($todo['id'])}>x</button>
+                    </li>,
+                    $todos,
+                )}
+            </ul>
+
+            <div style={$codeStyle}>
+                <p style="margin: 0 0 8px; color: #666;">// Array state with useState:</p>
+                <p style="margin: 0;">[$todos, $setTodos] = useState([...]);</p>
+                <p style="margin: 4px 0 0;">// Toggle: $setTodos(array_map(...))</p>
+                <p style="margin: 4px 0 0;">// Delete: $setTodos(array_filter(...))</p>
+            </div>
+        </div>;
+    };
+};
