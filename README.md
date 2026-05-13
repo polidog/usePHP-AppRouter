@@ -30,7 +30,7 @@ $app->run();
 
 ```
 app/
-  layout.php          -> Root layout (wraps all pages)
+  layout.php          -> Root layout (wraps all pages, or layout.psx)
   page.php            -> /
   error.php           -> Error page (404 etc.)
   about/
@@ -220,7 +220,7 @@ class FormPage extends PageComponent
 
 ## Layouts
 
-Each directory can have a `layout.php` that wraps all pages beneath it. Layouts implement `LayoutInterface`.
+Each directory can have a `layout.php` (or `layout.psx`) that wraps all pages beneath it. Layouts implement `LayoutInterface`. Only one extension per directory — having both `layout.psx` and `layout.php` side by side is rejected as ambiguous.
 
 ## Configuration
 
