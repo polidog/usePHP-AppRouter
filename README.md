@@ -32,7 +32,7 @@ $app->run();
 app/
   layout.php          -> Root layout (wraps all pages, or layout.psx)
   page.php            -> /
-  error.php           -> Error page (404 etc.)
+  error.php           -> Error page (404 etc., or error.psx)
   about/
     page.php          -> /about              (or page.psx, see below)
   counter/

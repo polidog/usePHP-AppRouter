@@ -378,6 +378,11 @@ class AppRouter
             return null;
         }
 
+        // .psx is the source; the runtime requires the compiled .psx.php sibling.
+        if (str_ends_with($errorPath, '.psx')) {
+            $errorPath = $this->resolveCompiledPsxPath($errorPath);
+        }
+
         require_once $errorPath;
 
         $className = $this->getClassFromFile($errorPath);

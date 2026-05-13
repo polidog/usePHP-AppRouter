@@ -12,7 +12,7 @@ final class PageScanner
 {
     private const PAGE_FILES = ['page.psx', 'page.php'];
     private const LAYOUT_FILES = ['layout.psx', 'layout.php'];
-    private const ERROR_FILE = 'error.php';
+    private const ERROR_FILES = ['error.psx', 'error.php'];
     private const DYNAMIC_SEGMENT_PATTERN = '/^\[([a-zA-Z_][a-zA-Z0-9_]*)\]$/';
 
     public function __construct(
@@ -43,8 +43,24 @@ final class PageScanner
 
     public function getErrorPagePath(): ?string
     {
-        $errorPath = rtrim($this->appDirectory, '/') . '/' . self::ERROR_FILE;
-        return file_exists($errorPath) ? $errorPath : null;
+        $appDir = rtrim($this->appDirectory, '/');
+        $found = [];
+
+        foreach (self::ERROR_FILES as $name) {
+            $candidate = $appDir . '/' . $name;
+            if (file_exists($candidate)) {
+                $found[] = $candidate;
+            }
+        }
+
+        if (\count($found) > 1) {
+            throw new \RuntimeException(
+                "Both error.psx and error.php exist in $appDir. "
+                . 'Remove one — having both makes error page resolution ambiguous.'
+            );
+        }
+
+        return $found[0] ?? null;
     }
 
     /**
