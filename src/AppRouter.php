@@ -128,10 +128,10 @@ class AppRouter
             $errorComponent = $this->loadErrorPage($errorPagePath, 404, 'Page not found');
 
             if ($errorComponent !== null) {
-                $rootLayoutPath = $this->appDirectory . '/layout.php';
+                $rootLayoutPath = $this->findRootLayoutPath();
                 $layoutStack = new LayoutStack();
 
-                if (file_exists($rootLayoutPath)) {
+                if ($rootLayoutPath !== null) {
                     $layout = $this->loadLayoutFromFile($rootLayoutPath, []);
                     if ($layout !== null) {
                         $layoutStack->push($layout);
@@ -171,6 +171,11 @@ class AppRouter
     {
         if (!file_exists($filePath)) {
             return null;
+        }
+
+        // .psx is the source; the runtime requires the compiled .psx.php sibling.
+        if (str_ends_with($filePath, '.psx')) {
+            $filePath = $this->resolveCompiledPsxPath($filePath);
         }
 
         require_once $filePath;
@@ -371,6 +376,11 @@ class AppRouter
     {
         if (!file_exists($errorPath)) {
             return null;
+        }
+
+        // .psx is the source; the runtime requires the compiled .psx.php sibling.
+        if (str_ends_with($errorPath, '.psx')) {
+            $errorPath = $this->resolveCompiledPsxPath($errorPath);
         }
 
         require_once $errorPath;
@@ -583,6 +593,17 @@ class AppRouter
         }
 
         return $className;
+    }
+
+    private function findRootLayoutPath(): ?string
+    {
+        foreach (['layout.psx', 'layout.php'] as $name) {
+            $candidate = $this->appDirectory . '/' . $name;
+            if (file_exists($candidate)) {
+                return $candidate;
+            }
+        }
+        return null;
     }
 
     private function getRequestPath(): string

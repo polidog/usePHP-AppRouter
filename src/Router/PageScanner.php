@@ -11,8 +11,8 @@ use SplFileInfo;
 final class PageScanner
 {
     private const PAGE_FILES = ['page.psx', 'page.php'];
-    private const LAYOUT_FILE = 'layout.php';
-    private const ERROR_FILE = 'error.php';
+    private const LAYOUT_FILES = ['layout.psx', 'layout.php'];
+    private const ERROR_FILES = ['error.psx', 'error.php'];
     private const DYNAMIC_SEGMENT_PATTERN = '/^\[([a-zA-Z_][a-zA-Z0-9_]*)\]$/';
 
     public function __construct(
@@ -43,8 +43,24 @@ final class PageScanner
 
     public function getErrorPagePath(): ?string
     {
-        $errorPath = rtrim($this->appDirectory, '/') . '/' . self::ERROR_FILE;
-        return file_exists($errorPath) ? $errorPath : null;
+        $appDir = rtrim($this->appDirectory, '/');
+        $found = [];
+
+        foreach (self::ERROR_FILES as $name) {
+            $candidate = $appDir . '/' . $name;
+            if (file_exists($candidate)) {
+                $found[] = $candidate;
+            }
+        }
+
+        if (\count($found) > 1) {
+            throw new \RuntimeException(
+                "Both error.psx and error.php exist in $appDir. "
+                . 'Remove one — having both makes error page resolution ambiguous.'
+            );
+        }
+
+        return $found[0] ?? null;
     }
 
     /**
@@ -189,10 +205,9 @@ final class PageScanner
     private function findLayouts(string $appDir, string $pageDir): array
     {
         $layouts = [];
-        $current = $appDir;
 
-        $rootLayout = $current . '/' . self::LAYOUT_FILE;
-        if (file_exists($rootLayout)) {
+        $rootLayout = $this->resolveLayoutInDir($appDir);
+        if ($rootLayout !== null) {
             $layouts[] = $rootLayout;
         }
 
@@ -204,14 +219,38 @@ final class PageScanner
 
             foreach ($segments as $segment) {
                 $path .= '/' . $segment;
-                $layoutPath = $path . '/' . self::LAYOUT_FILE;
+                $layoutPath = $this->resolveLayoutInDir($path);
 
-                if (file_exists($layoutPath)) {
+                if ($layoutPath !== null) {
                     $layouts[] = $layoutPath;
                 }
             }
         }
 
         return $layouts;
+    }
+
+    /**
+     * Return the layout file in $dir, preferring .psx over .php.
+     * Errors when both extensions coexist — same rule as page.psx/page.php.
+     */
+    private function resolveLayoutInDir(string $dir): ?string
+    {
+        $found = [];
+        foreach (self::LAYOUT_FILES as $name) {
+            $candidate = $dir . '/' . $name;
+            if (file_exists($candidate)) {
+                $found[] = $candidate;
+            }
+        }
+
+        if (\count($found) > 1) {
+            throw new \RuntimeException(
+                "Both layout.psx and layout.php exist in $dir. "
+                . 'Remove one — having both makes layout resolution ambiguous.'
+            );
+        }
+
+        return $found[0] ?? null;
     }
 }

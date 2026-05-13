@@ -1,0 +1,27 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App;
+
+use Polidog\UsePhp\Html\H;
+use Polidog\UsePhp\Runtime\Element;
+use Polidog\UsephpApprouter\Component\ErrorPageComponent;
+
+class ErrorPage extends ErrorPageComponent
+{
+    public function render(): Element
+    {
+        $cardStyle = 'padding: 24px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);';
+        $codeStyle = 'margin: 0 0 8px; font-size: 48px; color: #e74c3c;';
+        $messageStyle = 'margin: 0; color: #666;';
+
+        return <div style={$cardStyle}>
+            <h1 style={$codeStyle}>{(string) $this->getStatusCode()}</h1>
+            <p style={$messageStyle}>{$this->getMessage()}</p>
+            <p style="margin-top: 16px;">
+                <a href="/" style="color: #3498db;">Back to home</a>
+            </p>
+        </div>;
+    }
+}

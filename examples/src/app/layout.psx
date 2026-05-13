@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App;
+
+use Polidog\UsePhp\Html\H;
+use Polidog\UsePhp\Runtime\Element;
+use Polidog\UsephpApprouter\Layout\LayoutComponent;
+
+class RootLayout extends LayoutComponent
+{
+    public function render(): Element
+    {
+        $linkStyle = 'color: white; text-decoration: none; padding: 4px 12px; border-radius: 4px;';
+        $navStyle = 'padding: 12px 24px; background: #1a1a2e; display: flex; align-items: center; gap: 8px;';
+        $brandStyle = 'color: #e94560; margin-right: 16px; font-size: 18px;';
+        $mainStyle = 'padding: 24px; max-width: 800px; margin: 0 auto;';
+
+        return <div>
+            <nav style={$navStyle}>
+                <strong style={$brandStyle}>usePHP</strong>
+                <a href="/" style={$linkStyle}>Home</a>
+                <a href="/counter" style={$linkStyle}>Counter</a>
+                <a href="/todo" style={$linkStyle}>Todo</a>
+                <a href="/form" style={$linkStyle}>Form</a>
+                <a href="/blog/hello-world" style={$linkStyle}>Blog</a>
+                <a href="/about" style={$linkStyle}>About</a>
+            </nav>
+            <main style={$mainStyle}>
+                {$this->getChildren()}
+            </main>
+        </div>;
+    }
+}
