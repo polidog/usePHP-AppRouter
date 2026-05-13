@@ -1,11 +1,11 @@
 # usePHP App Router
 
-Next.js App Router style file-based routing for PHP, built on [usePHP](https://github.com/polidog/use-php).
+Next.js App Router style file-based routing for PHP, built on [usePHP](https://github.com/polidog/usePHP).
 
 ## Requirements
 
 - PHP >= 8.5
-- [polidog/use-php](https://github.com/polidog/use-php) ^0.0.3 (or `dev-main` for PSX support)
+- [polidog/use-php](https://github.com/polidog/usePHP) ^0.1.0
 
 ## Installation
 
@@ -31,32 +31,32 @@ $app->run();
 ```
 app/
   layout.php          -> Root layout (wraps all pages, or layout.psx)
-  page.php            -> /
+  page.psx            -> /
   error.php           -> Error page (404 etc., or error.psx)
   about/
-    page.php          -> /about              (or page.psx, see below)
+    page.psx          -> /about
   counter/
-    page.php          -> /counter
+    page.psx          -> /counter
   todo/
-    page.php          -> /todo
+    page.psx          -> /todo
   form/
-    page.php          -> /form
+    page.psx          -> /form
   blog/
     [slug]/
-      page.php        -> /blog/:slug (dynamic route)
+      page.psx        -> /blog/:slug (dynamic route)
 ```
 
 ## Page Types
 
 ### Function Page (closure-based)
 
-Pages return a closure that receives a `PageContext`. The closure returns a render function.
+Pages return a closure that receives a `PageContext`. The closure returns a render function. Use `page.psx` to write the inner render in TSX-like markup.
 
 ```php
 <?php
+// app/about/page.psx
 declare(strict_types=1);
 
-use Polidog\UsePhp\Html\H;
 use Polidog\UsePhp\Runtime\Element;
 use Polidog\UsephpApprouter\Component\PageContext;
 
@@ -64,7 +64,12 @@ return function (PageContext $ctx) {
     $ctx->metadata(['title' => 'About']);
 
     return function (): Element {
-        return H::div(children: 'Hello from About page');
+        return (
+            <div className="container">
+                <h1>About</h1>
+                <p>Written in PSX.</p>
+            </div>
+        );
     };
 };
 ```
@@ -76,39 +81,98 @@ return function (PageContext $ctx) {
     $ctx->metadata(['title' => 'About']);
 
     $renderCard = function (string $title): Element {
-        return H::div(children: H::h3(children: $title));
+        return (
+            <div>
+                <h3>{$title}</h3>
+            </div>
+        );
     };
 
     return function () use ($renderCard): Element {
-        return H::div(children: [$renderCard('Hello')]);
+        return (
+            <div>
+                {$renderCard('Hello')}
+            </div>
+        );
     };
 };
 ```
 
-### PSX Page (TSX-like syntax)
+### Dynamic Routes
 
-If you prefer HTML-like markup, write `page.psx` instead of `page.php`. The file uses the same outer signature; only the inner render returns PSX rather than `H::xxx()` calls.
+Directory names wrapped in brackets (e.g. `[slug]`) become URL parameters, accessible via `$ctx->params`:
+
+```php
+// app/blog/[slug]/page.psx
+return function (PageContext $ctx) {
+    $slug = $ctx->params['slug'] ?? '';
+    $ctx->metadata(['title' => ucwords($slug) . ' - Blog']);
+
+    return function () use ($slug): Element {
+        return (
+            <div>Blog post: {$slug}</div>
+        );
+    };
+};
+```
+
+### useState Hook
+
+```php
+use function Polidog\UsePhp\Runtime\useState;
+
+return function (PageContext $ctx) {
+    return function (): Element {
+        [$count, $setCount] = useState(0);
+
+        return (
+            <div>
+                <span>{(string) $count}</span>
+                <button onClick={fn() => $setCount($count + 1)}>+</button>
+            </div>
+        );
+    };
+};
+```
+
+### Class Page
+
+Class-based pages are also supported by extending `PageComponent`. Use `page.psx` to write the render method in TSX-like markup:
 
 ```php
 <?php
-// app/about/page.psx
+// app/form/page.psx
 declare(strict_types=1);
 
-use Polidog\UsePhp\Html\H;
+namespace App\Form;
+
 use Polidog\UsePhp\Runtime\Element;
-use Polidog\UsephpApprouter\Component\PageContext;
+use Polidog\UsephpApprouter\Component\PageComponent;
 
-return function (PageContext $ctx) {
-    $ctx->metadata(['title' => 'About']);
+class FormPage extends PageComponent
+{
+    public function render(): Element
+    {
+        $this->setMetadata(['title' => 'Form']);
+        [$data, $setData] = $this->useState([]);
+        $action = $this->action([$this, 'handleSubmit']);
 
-    return function (): Element {
-        return <div className="container">
-            <h1>About</h1>
-            <p>Written in PSX.</p>
-        </div>;
-    };
-};
+        return (
+            <form action={$action}>
+                <input type="text" name="name" />
+                <button type="submit">Send</button>
+            </form>
+        );
+    }
+
+    protected function handleSubmit(array $formData): void
+    {
+        // handle form submission
+    }
+}
 ```
+
+## Compiling .psx files
 
 `.psx` files must be compiled. Output goes to `var/cache/psx/` by default (sha1-named files plus `manifest.php`); the source tree only ever contains `.psx`.
 
@@ -145,77 +209,6 @@ Add the cache directory to `.gitignore`:
 
 ```gitignore
 /var/cache/psx/
-```
-
-### Dynamic Routes
-
-Directory names wrapped in brackets (e.g. `[slug]`) become URL parameters, accessible via `$ctx->params`:
-
-```php
-// app/blog/[slug]/page.php
-return function (PageContext $ctx) {
-    $slug = $ctx->params['slug'] ?? '';
-    $ctx->metadata(['title' => ucwords($slug) . ' - Blog']);
-
-    return function () use ($slug): Element {
-        return H::div(children: "Blog post: {$slug}");
-    };
-};
-```
-
-### useState Hook
-
-```php
-use function Polidog\UsePhp\Runtime\useState;
-
-return function (PageContext $ctx) {
-    return function (): Element {
-        [$count, $setCount] = useState(0);
-
-        return H::div(children: [
-            H::span(children: (string) $count),
-            H::button(
-                onClick: fn() => $setCount($count + 1),
-                children: '+',
-            ),
-        ]);
-    };
-};
-```
-
-### Class Page
-
-Class-based pages are also supported by extending `PageComponent`:
-
-```php
-<?php
-declare(strict_types=1);
-
-namespace App\Form;
-
-use Polidog\UsePhp\Html\H;
-use Polidog\UsePhp\Runtime\Element;
-use Polidog\UsephpApprouter\Component\PageComponent;
-
-class FormPage extends PageComponent
-{
-    public function render(): Element
-    {
-        $this->setMetadata(['title' => 'Form']);
-        [$data, $setData] = $this->useState([]);
-        $action = $this->action([$this, 'handleSubmit']);
-
-        return H::form(action: $action, children: [
-            H::input(type: 'text', name: 'name'),
-            H::button(type: 'submit', children: 'Send'),
-        ]);
-    }
-
-    protected function handleSubmit(array $formData): void
-    {
-        // handle form submission
-    }
-}
 ```
 
 ## Layouts
